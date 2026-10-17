@@ -60,7 +60,7 @@ func genSQL(
 		//	if a subquery is set in the 'sql' config the subquery is set to the layer's
 		//	'tablename' param. because of this case normal SQL token replacement needs to be
 		//	applied to tablename SQL generation
-		tile := provider.NewTile(0, 0, 0, 64, tegola.WebMercator)
+		tile := provider.NewTile(0, 0, 0, 64, uint(l.SRID()))
 		sql, err = replaceTokens(sql, l, tile, buffer)
 		if err != nil {
 			return "", err
@@ -140,8 +140,9 @@ func genSQL(
 // !GEOM_TYPE! - the geom field type if defined otherwise ""
 func replaceTokens(sql string, lyr *Layer, tile provider.Tile, withBuffer bool) (string, error) {
 	var (
-		extent  *geom.Extent
-		geoType string
+		extent   *geom.Extent
+		tileSRID uint64
+		geoType  string
 	)
 
 	if lyr == nil {
@@ -150,24 +151,31 @@ func replaceTokens(sql string, lyr *Layer, tile provider.Tile, withBuffer bool) 
 	srid := lyr.SRID()
 
 	if withBuffer {
-		extent, _ = tile.BufferedExtent()
+		extent, tileSRID = tile.BufferedExtent()
 	} else {
-		extent, _ = tile.Extent()
+		extent, tileSRID = tile.Extent()
 	}
 
 	// TODO: leverage helper functions for minx / miny to make this easier to follow
-	// TODO: it's currently assumed the tile will always be in WebMercator. Need to support different projections
-	minGeo, err := basic.FromWebMercator(srid, geom.Point{extent.MinX(), extent.MinY()})
-	if err != nil {
-		return "", fmt.Errorf("Error trying to convert tile point: %w ", err)
-	}
+	// TODO: a tile is either in WebMercator or, with a custom tile matrix set, already in the layer's SRID.
+	minPt, maxPt := geom.Point{extent.MinX(), extent.MinY()}, geom.Point{extent.MaxX(), extent.MaxY()}
+	if tileSRID != srid {
+		if tileSRID != tegola.WebMercator {
+			return "", fmt.Errorf("can not reproject tile from SRID %v to layer SRID %v", tileSRID, srid)
+		}
 
-	maxGeo, err := basic.FromWebMercator(srid, geom.Point{extent.MaxX(), extent.MaxY()})
-	if err != nil {
-		return "", fmt.Errorf("Error trying to convert tile point: %w ", err)
-	}
+		minGeo, err := basic.FromWebMercator(srid, minPt)
+		if err != nil {
+			return "", fmt.Errorf("Error trying to convert tile point: %w ", err)
+		}
 
-	minPt, maxPt := minGeo.(geom.Point), maxGeo.(geom.Point)
+		maxGeo, err := basic.FromWebMercator(srid, maxPt)
+		if err != nil {
+			return "", fmt.Errorf("Error trying to convert tile point: %w ", err)
+		}
+
+		minPt, maxPt = minGeo.(geom.Point), maxGeo.(geom.Point)
+	}
 
 	bbox := fmt.Sprintf(
 		"ST_MakeEnvelope(%.8f,%.8f,%.8f,%.8f,%d)",

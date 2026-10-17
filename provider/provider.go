@@ -75,6 +75,7 @@ func (pf providerFilter) Is(ps ...providerType) bool {
 type tile_t struct {
 	slippy.Tile
 	buffer uint
+	tms    *TileMatrixSet // nil for WebMercator
 }
 
 // NewTile creates a new slippy tile with a Buffer
@@ -86,12 +87,20 @@ func NewTile(z slippy.Zoom, x uint, y uint, buf, srid uint) Tile {
 			Y: y,
 		},
 		buffer: buf,
+		tms:    TileMatrixSetForSRID(uint64(srid)),
 	}
 }
 
 // Extent returns the extent of the tile
 func (tile *tile_t) Extent() (ext *geom.Extent, srid uint64) {
 	var err error
+	if tile.tms != nil {
+		if ext, err = tile.tms.TileExtent(uint(tile.Z), tile.X, tile.Y); err != nil {
+			log.Error("Could not generate valid extent for tile.", tile, err)
+			return &geom.Extent{}, tile.tms.SRID
+		}
+		return ext, tile.tms.SRID
+	}
 	ext, err = slippy.Extent(webmercatorGrid, tile.Tile)
 	if err != nil {
 		log.Error("Could not generate valid extent for tile.", tile, err)
@@ -102,6 +111,10 @@ func (tile *tile_t) Extent() (ext *geom.Extent, srid uint64) {
 
 // BufferedExtent returns an extent of the tile, with the define buffer
 func (tile *tile_t) BufferedExtent() (ext *geom.Extent, srid uint64) {
+	if tile.tms != nil {
+		ext, srid = tile.Extent()
+		return ext.ExpandBy(ext.XSpan() / slippy.MvtTileDim * float64(tile.buffer)), srid
+	}
 	ext, _ = tile.Extent()
 	return ext.ExpandBy(slippy.MvtPixelRationForZoom(webmercatorGrid, tile.Z) * float64(tile.buffer)), 3857
 }

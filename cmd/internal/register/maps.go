@@ -130,6 +130,18 @@ func Maps(a *atlas.Atlas, maps []provider.Map, providers map[string]provider.Til
 	for _, m := range maps {
 		newMap := webMercatorMapFromConfigMap(m)
 
+		// a map served in a custom tile grid takes the grid's SRID, which selects it for every tile
+		if len(m.TileMatrixSets) > 1 {
+			return fmt.Errorf("map %v: only one tile matrix set per map is supported", m.Name)
+		}
+		if len(m.TileMatrixSets) == 1 {
+			tms := provider.TileMatrixSetByID(string(m.TileMatrixSets[0]))
+			if tms == nil {
+				return fmt.Errorf("map %v: tile matrix set %v is not configured", m.Name, m.TileMatrixSets[0])
+			}
+			newMap.SRID = tms.SRID
+		}
+
 		// iterate our layers
 		for _, l := range m.Layers {
 			providerName, _, err := l.ProviderLayerName()
@@ -162,6 +174,11 @@ func Maps(a *atlas.Atlas, maps []provider.Map, providers map[string]provider.Til
 				return err
 			}
 			newMap.Layers = append(newMap.Layers, layer)
+		}
+
+		// standard providers reproject and clip in tegola, which only knows WebMercator
+		if len(m.TileMatrixSets) == 1 && !newMap.HasMVTProvider() {
+			return fmt.Errorf("map %v: a tile matrix set requires an MVT provider (e.g. mvt_postgis)", m.Name)
 		}
 
 		a.AddMap(newMap)

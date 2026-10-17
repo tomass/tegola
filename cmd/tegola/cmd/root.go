@@ -13,6 +13,7 @@ import (
 	"github.com/go-spatial/tegola/dict"
 	"github.com/go-spatial/tegola/internal/build"
 	"github.com/go-spatial/tegola/internal/log"
+	"github.com/go-spatial/tegola/provider"
 )
 
 var (
@@ -87,6 +88,10 @@ func initConfig(configFile string, cacheRequired bool, logLevel string) (err err
 	provArr := make([]dict.Dicter, len(conf.Providers))
 	for i := range provArr {
 		provArr[i] = conf.Providers[i]
+	}
+
+	if err = provider.SetTileMatrixSets(conf.TileMatrixSets); err != nil {
+		return fmt.Errorf("could not register tile matrix sets: %v", err)
 	}
 
 	providers, err := register.Providers(provArr, conf.Maps)

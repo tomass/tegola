@@ -16,6 +16,7 @@ import (
 	"github.com/go-spatial/tegola/dict"
 	"github.com/go-spatial/tegola/internal/build"
 	"github.com/go-spatial/tegola/internal/log"
+	"github.com/go-spatial/tegola/provider"
 	"github.com/go-spatial/tegola/server"
 )
 
@@ -63,6 +64,12 @@ func init() {
 	provArr := make([]dict.Dicter, len(conf.Providers))
 	for i := range provArr {
 		provArr[i] = conf.Providers[i]
+	}
+
+	// register the tile matrix sets, before the providers which build tiles at init
+	if err = provider.SetTileMatrixSets(conf.TileMatrixSets); err != nil {
+		log.Error(err)
+		os.Exit(1)
 	}
 
 	// register the providers
