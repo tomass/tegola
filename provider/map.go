@@ -12,4 +12,6 @@ type Map struct {
 	Parameters      []QueryParameter `toml:"params"`
 	TileBuffer      *env.Int         `toml:"tile_buffer"`
 	TileJSONVersion string           `toml:"tilejson_version"`
+	// TileMatrixSets names the configured grid this map is served in (only one is supported).
+	TileMatrixSets []env.String `toml:"tile_matrix_sets"`
 }

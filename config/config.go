@@ -69,6 +69,8 @@ type Config struct {
 	// Note: Use the type to figure out if the provider is a mvt or std provider
 	Providers []env.Dict     `toml:"providers"`
 	Maps      []provider.Map `toml:"maps"`
+	// Tile grids in CRSs other than WebMercator, referenced by maps.
+	TileMatrixSets []provider.TileMatrixSet `toml:"tile_matrix_sets"`
 }
 
 // Webserver represents the config options for the webserver part of Tegola
