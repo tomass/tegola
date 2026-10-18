@@ -342,7 +342,7 @@ func (p Provider) LayerFields(ctx context.Context, layerName string) (map[string
 	}
 
 	// Use a dummy tile to replace tokens in the SQL
-	dummyTile := provider.NewTile(0, 0, 0, 256, 3857)
+	dummyTile := provider.NewTile(0, 0, 0, 256, uint(plyr.SRID()))
 	sql, err := replaceTokens(plyr.sql, &plyr, dummyTile, true)
 	if err != nil {
 		return nil, fmt.Errorf("error replacing layer tokens for layer (%s): %w", layerName, err)
@@ -562,7 +562,7 @@ func (p Provider) inspectLayerGeomType(pname string, l *Layer, maps []provider.M
 	)
 
 	// we need a tile to run our sql through the replacer
-	tile := provider.NewTile(0, 0, 0, 64, tegola.WebMercator)
+	tile := provider.NewTile(0, 0, 0, 64, uint(l.SRID()))
 
 	// normal replacer
 	sql, err = replaceTokens(sql, l, tile, true)
