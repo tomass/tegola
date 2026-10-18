@@ -67,11 +67,22 @@ func (req *HandleMapLayerZXY) parseURI(r *http.Request) error {
 	}
 	req.z = uint(placeholder)
 
-	maxXYatZ := maths.Exp2(placeholder) - 1
+	// a map in a custom tile matrix set has its own number of columns and rows per zoom
+	maxXatZ, maxYatZ := maths.Exp2(placeholder) - 1, maths.Exp2(placeholder) - 1
+	if m, err := req.Atlas.Map(req.mapName); err == nil {
+		if tms := provider.TileMatrixSetForSRID(m.SRID); tms != nil {
+			cols, rows, err := tms.MatrixSize(req.z)
+			if err != nil {
+				log.Warnf("invalid Z value (%v): %v", z, err)
+				return fmt.Errorf("invalid Z value (%v)", z)
+			}
+			maxXatZ, maxYatZ = uint64(cols)-1, uint64(rows)-1
+		}
+	}
 
 	x := params["x"]
 	placeholder, err = strconv.ParseUint(x, 10, 32)
-	if err != nil || placeholder > maxXYatZ {
+	if err != nil || placeholder > maxXatZ {
 		log.Warnf("invalid X value (%v)", x)
 		return fmt.Errorf("invalid X value (%v)", x)
 	}
@@ -81,7 +92,7 @@ func (req *HandleMapLayerZXY) parseURI(r *http.Request) error {
 	y := params["y"]
 	yParts := strings.Split(y, ".")
 	placeholder, err = strconv.ParseUint(yParts[0], 10, 32)
-	if err != nil || placeholder > maxXYatZ {
+	if err != nil || placeholder > maxYatZ {
 		log.Warnf("invalid Y value (%v)", yParts[0])
 		return fmt.Errorf("invalid Y value (%v)", yParts[0])
 	}
@@ -151,7 +162,8 @@ func (req HandleMapLayerZXY) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	tile := slippy.Tile{Z: slippy.Zoom(req.z), X: req.x, Y: req.y}
 
-	{
+	// map bounds are in WGS84, which a custom tile matrix set can not be converted to
+	if provider.TileMatrixSetForSRID(m.SRID) == nil {
 		// Check to see that the zxy is within the bounds of the map.
 		// TODO(@ear7h): use a more efficient version of Intersect that doesn't
 		// make a new extent
