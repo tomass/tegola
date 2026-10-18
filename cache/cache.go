@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-spatial/tegola"
 	"github.com/go-spatial/tegola/dict"
-	"github.com/go-spatial/tegola/maths"
 )
 
 // Interface defines a cache back end
@@ -80,10 +79,11 @@ func ParseKey(str string) (*Key, error) {
 	}
 
 	key.Z = uint(placeholder)
-	maxXYatZ := maths.Exp2(placeholder) - 1
+	// x and y are not checked against 2^z: maps in a custom tile matrix set have
+	// other limits, and the tile handler validates them
 
 	placeholder, err = strconv.ParseUint(zxy[1], 10, 32)
-	if err != nil || placeholder > maxXYatZ {
+	if err != nil {
 		err = ErrInvalidFileKey{
 			path: str,
 			key:  "X",
@@ -99,7 +99,7 @@ func ParseKey(str string) (*Key, error) {
 	// trim the extension if it exists
 	yParts := strings.Split(zxy[2], ".")
 	placeholder, err = strconv.ParseUint(yParts[0], 10, 64)
-	if err != nil || placeholder > maxXYatZ {
+	if err != nil {
 		err = ErrInvalidFileKey{
 			path: str,
 			key:  "Y",
